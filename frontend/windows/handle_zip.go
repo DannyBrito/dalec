@@ -70,7 +70,7 @@ func specToSourcesLLB(spec *dalec.Spec, sOpt dalec.SourceOpts, opts ...llb.Const
 		}
 
 		pg := dalec.ProgressGroup("Add spec source: " + k + " " + displayRef)
-		st, err := src.AsState(k, sOpt, append(opts, pg)...)
+		st, _, err := src.AsState(k, sOpt, append(opts, pg)...)
 		if err != nil {
 			return nil, err
 		}
@@ -98,7 +98,7 @@ func installBuildDeps(deps []string) llb.StateOption {
 	}
 }
 
-func withSourcesMounted(dst string, states map[string]llb.State, sources map[string]dalec.Source) llb.RunOption {
+func withSourcesMounted(dst string, states map[string]llb.State, sources map[string]dalec.Source, sOpt dalec.SourceOpts) llb.RunOption {
 	opts := make([]llb.RunOption, 0, len(states))
 
 	sorted := dalec.SortMapKeys(states)
@@ -108,7 +108,7 @@ func withSourcesMounted(dst string, states map[string]llb.State, sources map[str
 		state := states[k]
 		src := sources[k]
 
-		if !dalec.SourceIsDir(src) {
+		if src.IsDir(state, sOpt) {
 			files = append(files, state)
 			continue
 		}
@@ -139,7 +139,7 @@ func buildBinaries(spec *dalec.Spec, worker llb.State, sOpt dalec.SourceOpts) (l
 	artifacts := work.Run(
 		shArgs(script.String()),
 		llb.Dir("/build"),
-		withSourcesMounted("/build", patched, spec.Sources),
+		withSourcesMounted("/build", patched, spec.Sources, sOpt),
 		llb.AddMount("/tmp/scripts", buildScript),
 		llb.Network(llb.NetModeNone),
 	).AddMount(outputDir, llb.Scratch())

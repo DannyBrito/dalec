@@ -79,8 +79,6 @@ func Dalec2SourcesLLB(spec *dalec.Spec, sOpt dalec.SourceOpts, opts ...llb.Const
 	out := make([]llb.State, 0, len(spec.Sources))
 	for _, k := range sorted {
 		src := spec.Sources[k]
-		isDir := dalec.SourceIsDir(src)
-
 		s := ""
 		switch {
 		case src.DockerImage != nil:
@@ -100,7 +98,7 @@ func Dalec2SourcesLLB(spec *dalec.Spec, sOpt dalec.SourceOpts, opts ...llb.Const
 		}
 
 		pg := dalec.ProgressGroup("Add spec source: " + k + " " + s)
-		st, err := src.AsState(k, sOpt, append(opts, pg)...)
+		st, isDir, err := src.AsState(k, sOpt, append(opts, pg)...)
 		if err != nil {
 			return nil, err
 		}
