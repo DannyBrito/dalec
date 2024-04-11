@@ -61,7 +61,7 @@ func getSource(src Source, name string, sOpt SourceOpts, opts ...llb.Constraints
 	case src.Git != nil:
 		st, err = src.Git.AsState(opts...)
 	case src.Context != nil:
-		st, err = src.Context.AsState(name, src.Path, src.Includes, src.Excludes, sOpt, opts...)
+		st, err = src.Context.AsState(src.Includes, src.Excludes, sOpt, opts...)
 	case src.DockerImage != nil:
 		st, err = src.DockerImage.AsState(name, src.Path, sOpt, opts...)
 	case src.Build != nil:
@@ -82,7 +82,7 @@ func (src *SourceInline) AsState(name string) (llb.State, error) {
 	return llb.Scratch().With(src.Dir.PopulateAt("/")), nil
 }
 
-func (src *SourceContext) AsState(name string, srcPath string, includes []string, excludes []string, sOpt SourceOpts, opts ...llb.ConstraintsOpt) (llb.State, error) {
+func (src *SourceContext) AsState(includes []string, excludes []string, sOpt SourceOpts, opts ...llb.ConstraintsOpt) (llb.State, error) {
 	st, err := sOpt.GetContext(src.Name, LocalIncludeExcludeMerge(includes, excludes), withConstraints(opts))
 	if err != nil {
 		return llb.Scratch(), err
@@ -164,7 +164,7 @@ func shArgs(cmd string) llb.RunOption {
 	return llb.Args([]string{"sh", "-c", cmd})
 }
 
-func handleRename(s *Source, name string, sOpt SourceOpts) llb.StateOption {
+func HandleRename(s *Source, name string, sOpt SourceOpts) llb.StateOption {
 	rename := func(st llb.State) llb.State {
 		stFS := sOpt.GetFS(st)
 		entries, err := stFS.ReadDir("/")
@@ -185,34 +185,33 @@ func handleRename(s *Source, name string, sOpt SourceOpts) llb.StateOption {
 	}
 	noRename := func(st llb.State) llb.State { return st }
 
-	if s.Context != nil && s.Path != "" {
+	if s.Context != nil {
 		return rename
 	}
 
 	return noRename
 }
 
-func (s *Source) asState(name string, forMount bool, sOpt SourceOpts, opts ...llb.ConstraintsOpt) (llb.State, bool, error) {
+func (s *Source) asState(name string, forMount bool, sOpt SourceOpts, opts ...llb.ConstraintsOpt) (llb.State, error) {
 	st, err := getSource(*s, name, sOpt, opts...)
 	if err != nil {
-		return llb.Scratch(), false, err
+		return llb.Scratch(), err
 	}
-	isDir := s.IsDir(st, sOpt)
-	sourceState := st.With(getFilter(name, *s, forMount)).
-		With(handleRename(s, name, sOpt)) // certain sources such as source context require an extra
-		// step to rename the contents to the source name if the contents
-		// are a single file
+	sourceState := st.With(getFilter(*s, forMount))
+	sourceState = sourceState.With(HandleRename(s, name, sOpt)) // certain sources such as source context require an extra
+	// step to rename the contents to the source name if the contents
+	// are a single file
 
-	return sourceState, isDir, nil
+	return sourceState, nil
 }
 
 // returns llb.State of Source, bool for IsDirectory, and error
-func (s *Source) AsState(name string, sOpt SourceOpts, opts ...llb.ConstraintsOpt) (llb.State, bool, error) {
+func (s *Source) AsState(name string, sOpt SourceOpts, opts ...llb.ConstraintsOpt) (llb.State, error) {
 	return s.asState(name, false, sOpt, opts...)
 }
 
 // returns llb.State of Source, bool for IsDirectory, and error
-func (s *Source) AsMount(name string, sOpt SourceOpts, opts ...llb.ConstraintsOpt) (llb.State, bool, error) {
+func (s *Source) AsMount(name string, sOpt SourceOpts, opts ...llb.ConstraintsOpt) (llb.State, error) {
 	return s.asState(name, true, sOpt, opts...)
 }
 
@@ -233,7 +232,7 @@ func generateSourceFromImage(name string, st llb.State, cmd *Command, sOpts Sour
 	baseRunOpts := []llb.RunOption{CacheDirsToRunOpt(cmd.CacheDirs, "", "")}
 
 	for _, src := range cmd.Mounts {
-		srcSt, _, err := src.Spec.AsMount(name, sOpts, opts...)
+		srcSt, err := src.Spec.AsMount(name, sOpts, opts...)
 		if err != nil {
 			return llb.Scratch(), err
 		}
@@ -341,12 +340,12 @@ func isDir(inPath string, fs fs.ReadDirFS) bool {
 	panic("need to handle") // could not exist?
 }
 
-func isContextDir(src Source, srcState llb.State, sOpt SourceOpts) bool {
+func isContextSource(src Source, srcState llb.State, sOpt SourceOpts) bool {
 	srcFS := sOpt.GetFS(srcState)
-	if src.Path != "" {
-		p := path.Join("/", src.Path)
-		return isDir(p, srcFS)
-	}
+	// if src.Path != "" {
+	// 	p := path.Join("/", src.Path)
+	// 	return isDir(p, srcFS)
+	// }
 	// return true
 	entries, err := srcFS.ReadDir("/")
 	if err != nil {
@@ -355,7 +354,7 @@ func isContextDir(src Source, srcState llb.State, sOpt SourceOpts) bool {
 	if len(entries) == 1 {
 		return entries[0].IsDir()
 	} else if len(entries) == 0 {
-		panic("shouldn't be the case")
+		panic("shouldn't be the case") // Maybe this could raise a warning instead
 	}
 	return true
 }
@@ -364,7 +363,7 @@ func SourceIsDir(src Source, srcState llb.State, sOpt SourceOpts) bool {
 	switch {
 	case src.Context != nil:
 		//return true
-		return isContextDir(src, srcState, sOpt)
+		return isContextSource(src, srcState, sOpt)
 	case src.DockerImage != nil,
 		src.Git != nil,
 		src.Build != nil:
