@@ -9,6 +9,9 @@ do_install() {
 	local dest="${1}"
 	shift
 
+	local perm="${1}"
+	shift
+
 	mkdir -p "${parent}"
 
 	local files=($@)
@@ -22,4 +25,8 @@ do_install() {
 	for src in ${files[@]}; do
 		cp --reflink=auto -a "${src}" "${dest}"
 	done
+	#change mod of dest recursively
+	if [ "${perm}" != "0" ]; then
+		chmod -R "${perm}" "${dest}"
+	fi
 }
