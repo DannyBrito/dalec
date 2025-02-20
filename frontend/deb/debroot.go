@@ -200,6 +200,87 @@ func fixupArtifactPerms(spec *dalec.Spec, target string, cfg *SourcePkgConfig) [
 	basePath := filepath.Join("debian", spec.Name)
 
 	artifacts := spec.GetArtifacts(target)
+	if artifacts.Binaries != nil {
+		for _, cfg := range artifacts.Binaries {
+			if cfg.Mode.Perm() != 0 {
+				p := filepath.Join(basePath, "usr/bin", cfg.ResolveName(""))
+				fmt.Fprintf(buf, "chmod %o %q\n", cfg.Mode.Perm(), p)
+			}
+		}
+	}
+
+	if artifacts.ConfigFiles != nil {
+		for _, cfg := range artifacts.ConfigFiles {
+			if cfg.Mode.Perm() != 0 {
+				p := filepath.Join(basePath, "etc", cfg.ResolveName(""))
+				fmt.Fprintf(buf, "chmod %o %q\n", cfg.Mode.Perm(), p)
+			}
+		}
+	}
+
+	if artifacts.Manpages != nil {
+		for _, cfg := range artifacts.Manpages {
+			if cfg.Mode.Perm() != 0 {
+				p := filepath.Join(basePath, "usr/share/doc/manpages", spec.Name, cfg.ResolveName(""))
+				fmt.Fprintf(buf, "chmod %o %q\n", cfg.Mode.Perm(), p)
+			}
+		}
+	}
+
+	if artifacts.Headers != nil {
+		for _, cfg := range artifacts.Headers {
+			if cfg.Mode.Perm() != 0 {
+				p := filepath.Join(basePath, "usr/include", cfg.ResolveName(""))
+				fmt.Fprintf(buf, "chmod %o %q\n", cfg.Mode.Perm(), p)
+			}
+		}
+	}
+
+	if artifacts.Licenses != nil {
+		for _, cfg := range artifacts.Licenses {
+			if cfg.Mode.Perm() != 0 {
+				p := filepath.Join(basePath, "usr/share/doc", spec.Name, cfg.ResolveName(""))
+				fmt.Fprintf(buf, "chmod %o %q\n", cfg.Mode.Perm(), p)
+			}
+		}
+	}
+
+	if artifacts.Docs != nil {
+		for _, cfg := range artifacts.Docs {
+			if cfg.Mode.Perm() != 0 {
+				p := filepath.Join(basePath, "usr/share/doc", spec.Name, cfg.ResolveName(""))
+				fmt.Fprintf(buf, "chmod %o %q\n", cfg.Mode.Perm(), p)
+			}
+		}
+	}
+
+	if artifacts.Libs != nil {
+		for _, cfg := range artifacts.Libs {
+			if cfg.Mode.Perm() != 0 {
+				p := filepath.Join(basePath, "usr/lib", spec.Name, cfg.ResolveName(""))
+				fmt.Fprintf(buf, "chmod %o %q\n", cfg.Mode.Perm(), p)
+			}
+		}
+	}
+
+	if artifacts.Libexec != nil {
+		for _, cfg := range artifacts.Libexec {
+			if cfg.Mode.Perm() != 0 {
+				p := filepath.Join(basePath, "usr/libexec", cfg.ResolveName(""))
+				fmt.Fprintf(buf, "chmod %o %q\n", cfg.Mode.Perm(), p)
+			}
+		}
+	}
+
+	if artifacts.DataDirs != nil {
+		for _, cfg := range artifacts.DataDirs {
+			if cfg.Mode.Perm() != 0 {
+				p := filepath.Join(basePath, "usr/share", cfg.ResolveName(""))
+				fmt.Fprintf(buf, "chmod %o %q\n", cfg.Mode.Perm(), p)
+			}
+		}
+	}
+
 	if artifacts.Directories == nil {
 		return nil
 	}
