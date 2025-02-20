@@ -27,6 +27,6 @@ do_install() {
 	done
 	#change mod of dest recursively
 	if [ "${perm}" != "0" ]; then
-		chmod -R "${perm}" "${dest}"
+		chmod -R $perm "${dest}"
 	fi
 }

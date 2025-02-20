@@ -67,6 +67,88 @@ func (w *rulesWrapper) OverridePerms() fmt.Stringer {
 	artifacts := w.GetArtifacts(w.target)
 
 	var fixPerms bool
+	// also need to check for fields that are of type map[string]dalec.ArtifactConfig
+	// because they can also have a Mode field.
+
+	for _, cfg := range artifacts.Binaries {
+		if cfg.Mode != 0 {
+			fixPerms = true
+			break
+		}
+	}
+	for _, cfg := range artifacts.ConfigFiles {
+		if cfg.Mode != 0 {
+			fixPerms = true
+			break
+		}
+	}
+	for _, cfg := range artifacts.Manpages {
+		if cfg.Mode != 0 {
+			fixPerms = true
+			break
+		}
+	}
+	for _, cfg := range artifacts.Headers {
+		if cfg.Mode != 0 {
+			fixPerms = true
+			break
+		}
+	}
+	for _, cfg := range artifacts.Licenses {
+		if cfg.Mode != 0 {
+			fixPerms = true
+			break
+		}
+	}
+	for _, cfg := range artifacts.Docs {
+		if cfg.Mode != 0 {
+			fixPerms = true
+			break
+		}
+	}
+	for _, cfg := range artifacts.Libs {
+		if cfg.Mode != 0 {
+			fixPerms = true
+			break
+		}
+	}
+	for _, cfg := range artifacts.Libexec {
+		if cfg.Mode != 0 {
+			fixPerms = true
+			break
+		}
+	}
+	for _, cfg := range artifacts.DataDirs {
+		if cfg.Mode != 0 {
+			fixPerms = true
+			break
+		}
+	}
+
+	for _, cfg := range artifacts.Binaries {
+		if cfg.Mode != 0 {
+			fixPerms = true
+			break
+		}
+	}
+	for _, cfg := range artifacts.Manpages {
+		if cfg.Mode != 0 {
+			fixPerms = true
+			break
+		}
+	}
+	for _, cfg := range artifacts.DataDirs {
+		if cfg.Mode != 0 {
+			fixPerms = true
+			break
+		}
+	}
+	for _, cfg := range artifacts.ConfigFiles {
+		if cfg.Mode != 0 {
+			fixPerms = true
+			break
+		}
+	}
 	for _, cfg := range artifacts.Directories.GetConfig() {
 		if cfg.Mode != 0 {
 			fixPerms = true
