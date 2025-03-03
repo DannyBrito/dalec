@@ -165,7 +165,7 @@ targets:
       binaries:
         bin/windows-cross.exe:
           subpath: ""
-          mode: 0o755
+          permissions: 0o755
   azlinux3:
     artifacts:
       binaries:
