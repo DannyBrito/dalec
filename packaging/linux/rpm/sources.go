@@ -47,13 +47,6 @@ func buildScript(spec *dalec.Spec) string {
 		fmt.Fprintln(b, "export CARGO_HOME=\"$(pwd)/"+cargohomeName+"\"")
 	}
 
-	if spec.HasNodeMods() {
-		fmt.Fprintln(b, "export NPM_CONFIG_CACHE=\"$(pwd)/"+npmCacheDir+"\"")
-		if spec.HasYarnPackageManager() {
-			fmt.Fprintln(b, "npm install --offline -g yarn; yarn config set yarn-offline-mirror $(pwd)/"+yarnCacheDir)
-		}
-	}
-
 	envKeys := dalec.SortMapKeys(t.Env)
 	for _, k := range envKeys {
 		v := t.Env[k]
@@ -89,15 +82,6 @@ func ToSourcesLLB(worker llb.State, spec *dalec.Spec, sOpt dalec.SourceOpts, opt
 		return nil, errors.Wrap(err, "error adding cargohome sources")
 	}
 
-	sorted := dalec.SortMapKeys(sources)
-	for _, k := range sorted {
-		st := sources[k]
-		if dalec.SourceIsDir(spec.Sources[k]) {
-			st = st.With(sourceTar(worker, k, withPG("Tar source: "+k)...))
-		}
-		out = append(out, st)
-	}
-
 	if gomodSt != nil {
 		out = append(out, gomodSt.With(sourceTar(worker, gomodsName, withPG("Tar gomod deps")...)))
 	}
@@ -106,13 +90,21 @@ func ToSourcesLLB(worker llb.State, spec *dalec.Spec, sOpt dalec.SourceOpts, opt
 		out = append(out, cargohomeSt.With(sourceTar(worker, cargohomeName, withPG("Tar cargohome deps")...)))
 	}
 
-	st, err := spec.NodeModDeps(sOpt, worker, withPG("Add node module deps")...)
+	srcsWithNodeMods, err := spec.NodeModDeps(sOpt, worker, opts...)
 	if err != nil {
-		return nil, errors.Wrap(err, "error adding node module deps")
+		return nil, errors.Wrap(err, "error preparing node deps")
 	}
 
-	if st != nil {
-		out = append(out, st.With(sourceTar(worker, nodeModsName, withPG("Tar node module deps")...)))
+	sorted := dalec.SortMapKeys(sources)
+	for _, k := range sorted {
+		st := sources[k]
+		if _, ok := srcsWithNodeMods[k]; ok {
+			st = srcsWithNodeMods[k]
+		}
+		if dalec.SourceIsDir(spec.Sources[k]) {
+			st = st.With(sourceTar(worker, k, withPG("Tar source: "+k)...))
+		}
+		out = append(out, st)
 	}
 
 	scriptSt := buildScriptSourceState(spec)

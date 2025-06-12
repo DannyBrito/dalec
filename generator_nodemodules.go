@@ -7,12 +7,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	baseDir      = "/node-mods"
-	yarnCacheDir = baseDir + "/yarn-dalec-cache"
-	npmCacheDir  = baseDir + "/npm-dalec-cache"
-)
-
 func (s *Source) isNodeMod() bool {
 	for _, gen := range s.Generate {
 		if gen.NodeMod != nil {
@@ -54,21 +48,27 @@ func withNodeMod(g *SourceGenerator, srcSt, worker llb.State, opts ...llb.Constr
 		var installCmd string
 		switch g.NodeMod.PackageManager {
 		case "yarn":
-			installCmd = "npm install --cache " + npmCacheDir + " -g yarn; yarn config set yarn-offline-mirror " + yarnCacheDir + "; yarn install"
+			installCmd = "npm install -g yarn; yarn install"
 		case "npm":
-			installCmd = "npm install --cache " + npmCacheDir
+			installCmd = "npm install"
 		default:
 			panic("unsupported package manager: " + g.NodeMod.PackageManager)
 		}
 
-		in = worker.Run(
+		// Run install in a new state, mounting the source
+		installed := worker.Run(
 			ShArgs(installCmd),
 			llb.Dir(joinedWorkDir),
 			srcMount,
 			WithConstraints(opts...),
-		).AddMount(baseDir, in)
+		).AddMount(filepath.Join(joinedWorkDir, "node_modules"), in)
 
-		return in
+		// Merge node_modules from installed state into srcSt
+		merged := srcSt.File(
+			llb.Copy(installed, "/", filepath.Join(g.Subpath, "node_modules"), &llb.CopyInfo{CreateDestPath: true}),
+		)
+
+		return merged
 	}
 }
 
@@ -85,13 +85,11 @@ func (s *Spec) nodeModSources() map[string]Source {
 // NodeModDeps returns an [llb.State] containing all the node module dependencies for the spec
 // for any sources that have a node module generator specified.
 // If there are no sources with a node module generator, this will return a nil state.
-func (s *Spec) NodeModDeps(sOpt SourceOpts, worker llb.State, opts ...llb.ConstraintsOpt) (*llb.State, error) {
+func (s *Spec) NodeModDeps(sOpt SourceOpts, worker llb.State, opts ...llb.ConstraintsOpt) (map[string]llb.State, error) {
 	sources := s.nodeModSources()
 	if len(sources) == 0 {
 		return nil, nil
 	}
-
-	deps := llb.Scratch()
 
 	// Get the patched sources for the node modules
 	patched, err := s.getPatchedSources(sOpt, worker, func(name string) bool {
@@ -102,21 +100,19 @@ func (s *Spec) NodeModDeps(sOpt SourceOpts, worker llb.State, opts ...llb.Constr
 		return nil, errors.Wrap(err, "failed to get patched sources")
 	}
 
+	result := make(map[string]llb.State)
 	sorted := SortMapKeys(patched)
 	opts = append(opts, ProgressGroup("Fetch node module dependencies for source: all before: "))
 	for _, key := range sorted {
 		src := s.Sources[key]
-
-		deps = deps.With(func(in llb.State) llb.State {
-			for _, gen := range src.Generate {
-				if gen.NodeMod == nil {
-					continue
-				}
-				in = in.With(withNodeMod(gen, patched[key], worker, opts...))
+		merged := patched[key]
+		for _, gen := range src.Generate {
+			if gen.NodeMod == nil {
+				continue
 			}
-			return in
-		})
+			merged = withNodeMod(gen, patched[key], worker, opts...)(merged)
+		}
+		result[key] = merged
 	}
-
-	return &deps, nil
+	return result, nil
 }

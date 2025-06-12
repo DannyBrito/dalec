@@ -64,9 +64,6 @@ func handleZip(ctx context.Context, client gwclient.Client) (*gwclient.Result, e
 const (
 	gomodsName    = "__gomods"
 	cargohomeName = "__cargohome"
-	nodeModsName  = "__nodemods-cache"
-	yarnCacheDir  = nodeModsName + "/yarn-dalec-cache"
-	npmCacheDir   = nodeModsName + "/npm-dalec-cache"
 )
 
 func specToSourcesLLB(worker llb.State, spec *dalec.Spec, sOpt dalec.SourceOpts, opts ...llb.ConstraintsOpt) (map[string]llb.State, error) {
@@ -86,14 +83,16 @@ func specToSourcesLLB(worker llb.State, spec *dalec.Spec, sOpt dalec.SourceOpts,
 		return nil, errors.Wrap(err, "error adding cargohome sources")
 	}
 
-	nodeModSt, err := spec.NodeModDeps(sOpt, worker, opts...)
+	srcsWithNodeMods, err := spec.NodeModDeps(sOpt, worker, opts...)
 	if err != nil {
-		return nil, errors.Wrap(err, "error adding node module deps")
+		return nil, errors.Wrap(err, "error preparing node deps")
+	}
+	sorted := dalec.SortMapKeys(srcsWithNodeMods)
+
+	for _, key := range sorted {
+		out[key] = srcsWithNodeMods[key]
 	}
 
-	if nodeModSt != nil {
-		out[nodeModsName] = *nodeModSt
-	}
 	if gomodSt != nil {
 		out[gomodsName] = *gomodSt
 	}
@@ -241,12 +240,6 @@ func createBuildScript(spec *dalec.Spec, opts ...llb.ConstraintsOpt) llb.State {
 		fmt.Fprintln(buf, "export CARGO_HOME=\"$(pwd)/"+cargohomeName+"\"")
 	}
 
-	if spec.HasNodeMods() {
-		fmt.Fprintln(buf, "export NPM_CONFIG_CACHE=\"$(pwd)/"+npmCacheDir+"\"")
-		if spec.HasYarnPackageManager() {
-			fmt.Fprintln(buf, "npm install --offline -g yarn; yarn config set yarn-offline-mirror $(pwd)/"+yarnCacheDir)
-		}
-	}
 	// add node_modules if they exist?
 	for i, step := range spec.Build.Steps {
 		fmt.Fprintln(buf, "(")

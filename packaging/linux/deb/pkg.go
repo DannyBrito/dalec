@@ -17,9 +17,6 @@ const (
 	// Unique name that would not normally be in the spec
 	// This will get used to create the source tar for cargo deps
 	cargohomeName = "xxxdalecCargoHomeInternal"
-	// Unique name that would not normally be in the spec
-	// This will get used to create the source tar for node module deps
-	nodeModsName = "__nodemods-cache"
 )
 
 func mountSources(sources map[string]llb.State, dir string, mod func(string) string) llb.RunOption {
@@ -99,13 +96,16 @@ func SourcePackage(ctx context.Context, sOpt dalec.SourceOpts, worker llb.State,
 		return llb.Scratch(), errors.Wrap(err, "error preparing cargohome deps")
 	}
 
-	nodeModeSt, err := spec.NodeModDeps(sOpt, worker, opts...)
+	srcsWithNodeMods, err := spec.NodeModDeps(sOpt, worker, opts...)
 	if err != nil {
 		return llb.Scratch(), errors.Wrap(err, "error preparing node deps")
 	}
-	if nodeModeSt != nil {
-		sources[nodeModsName] = *nodeModeSt
+	sorted := dalec.SortMapKeys(srcsWithNodeMods)
+
+	for _, key := range sorted {
+		sources[key] = srcsWithNodeMods[key]
 	}
+
 	if gomodSt != nil {
 		sources[gomodsName] = *gomodSt
 	}

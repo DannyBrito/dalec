@@ -32,8 +32,6 @@ const (
 	LibsPath                  = "/usr/lib"
 	LibexecPath               = "/usr/libexec"
 	DataDirsPath              = "/usr/share"
-	yarnCacheDir              = nodeModsName + "/yarn-dalec-cache"
-	npmCacheDir               = nodeModsName + "/npm-dalec-cache"
 )
 
 //go:embed templates/patch-header.txt
@@ -295,11 +293,6 @@ func fixupGenerators(spec *dalec.Spec, cfg *SourcePkgConfig) []byte {
 		// The default GOMODCACHE value is ${GOPATH}/pkg/mod.
 		fmt.Fprintf(buf, `test -n "$(go env GOMODCACHE)" || (GOPATH="$(go env GOPATH)"; mkdir -p "${GOPATH}/pkg" && ln -s "$(pwd)/%s" "${GOPATH}/pkg/mod")`, gomodsName)
 		// Above command does not have a newline due to quoting issues, so add that here.
-		fmt.Fprint(buf, "\n")
-	}
-
-	if spec.HasYarnPackageManager() {
-		fmt.Fprintln(buf, "npm install --offline -g yarn; yarn config set yarn-offline-mirror $(pwd)/"+yarnCacheDir)
 		fmt.Fprint(buf, "\n")
 	}
 	return buf.Bytes()

@@ -62,10 +62,6 @@ func (w *rulesWrapper) Envs() fmt.Stringer {
 		fmt.Fprintf(b, "export %s := $(PWD)/%s\n", "CARGO_HOME", cargohomeName)
 	}
 
-	if w.Spec.HasNodeMods() {
-		fmt.Fprintf(b, "export %s := $(PWD)/%s\n", "NPM_CONFIG_CACHE", npmCacheDir)
-	}
-
 	return b
 }
 
